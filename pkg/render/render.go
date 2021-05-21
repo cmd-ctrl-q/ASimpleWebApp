@@ -9,54 +9,56 @@ import (
 	"path/filepath"
 
 	"github.com/cmd-ctrl-q/ASimpleWebApp/pkg/config"
+	"github.com/cmd-ctrl-q/ASimpleWebApp/pkg/models"
 )
 
-// create custom functions to be passed into the template library
 var functions = template.FuncMap{}
 
 var app *config.AppConfig
 
-// NewTemplate sets the config for the template package
-func NewTemplate(a *config.AppConfig) {
+// NewTemplates sets the config for the template package
+func NewTemplates(a *config.AppConfig) {
 	app = a
 }
 
-// RenderTemplate renders templates using html/template
-func RenderTemplate(w http.ResponseWriter, tmpl string) {
+func AddDefaultData(td *models.TemplateData) *models.TemplateData {
 
+	return td
+}
+
+// RenderTemplate renders a template
+func RenderTemplate(w http.ResponseWriter, html string, td *models.TemplateData) {
 	var tc map[string]*template.Template
+
 	if app.UseCache {
 		// get the template cache from the app config
 		tc = app.TemplateCache
 	} else {
-		// else rebuild the template cache
 		tc, _ = CreateTemplateCache()
 	}
 
-	// get template out of map
-	t, ok := tc[tmpl]
+	t, ok := tc[html]
 	if !ok {
-		log.Fatalf("Could not get template %v from template cache", tmpl)
+		log.Fatalf("Could not get template %v from template cache", html)
 	}
 
 	buf := new(bytes.Buffer)
 
-	// add the template to the buffer
-	_ = t.Execute(buf, nil)
+	td = AddDefaultData(td)
 
-	// write content to the template
+	_ = t.Execute(buf, td)
+
 	_, err := buf.WriteTo(w)
 	if err != nil {
-		fmt.Println("Error writing template to browser", err)
+		fmt.Println("error writing template to browser", err)
 	}
 }
 
 // CreateTemplateCache creates a template cache as a map
 func CreateTemplateCache() (map[string]*template.Template, error) {
-	// golang map
+
 	myCache := map[string]*template.Template{}
 
-	// get all files that end with .page.html
 	pages, err := filepath.Glob("./templates/*.page.html")
 	if err != nil {
 		return myCache, err
@@ -64,7 +66,6 @@ func CreateTemplateCache() (map[string]*template.Template, error) {
 
 	for _, page := range pages {
 		name := filepath.Base(page)
-
 		ts, err := template.New(name).Funcs(functions).ParseFiles(page)
 		if err != nil {
 			return myCache, err
@@ -82,8 +83,8 @@ func CreateTemplateCache() (map[string]*template.Template, error) {
 			}
 		}
 
-		// add template to cache
 		myCache[name] = ts
 	}
+
 	return myCache, nil
 }
